@@ -67,6 +67,7 @@ services:
       - backend
     environment:
       PORT: 80
+      UPSTREAM_API_SCHEME: http
       UPSTREAM_API_HOSTPORT: backend:8000
     ports:
       - "3000:80"

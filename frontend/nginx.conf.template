@@ -7,7 +7,7 @@ server {
   proxy_read_timeout 3600s;
   proxy_send_timeout 3600s;
   location /api/ {
-    proxy_pass http://${UPSTREAM_API_HOSTPORT};
+    proxy_pass ${UPSTREAM_API_SCHEME}://${UPSTREAM_API_HOSTPORT};
     proxy_http_version 1.1;
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
@@ -16,7 +16,7 @@ server {
     proxy_request_buffering off;
   }
   location /ws/ {
-    proxy_pass http://${UPSTREAM_API_HOSTPORT};
+    proxy_pass ${UPSTREAM_API_SCHEME}://${UPSTREAM_API_HOSTPORT};
     proxy_http_version 1.1;
     proxy_set_header Upgrade $http_upgrade;
     proxy_set_header Connection "upgrade";
