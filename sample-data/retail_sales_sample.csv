@@ -1,0 +1,25 @@
+order_date,country,category,product_line,product_name,status,sales,quantity,discount,profit
+2025-01-04,USA,Electronics,Premium Devices,Alpha Phone,Completed,12500,18,0.05,4300
+2025-01-18,India,Furniture,Workspace,Ergo Desk,Completed,8600,11,0.08,2200
+2025-02-02,Germany,Office Supplies,Stationery,Executive Pen,Completed,3200,54,0.02,900
+2025-02-16,USA,Electronics,Premium Devices,Alpha Tablet,Completed,14100,21,0.04,4700
+2025-03-05,UAE,Home Decor,Modern Living,Aurora Lamp,Pending,5400,25,0.06,1500
+2025-03-22,India,Electronics,Smart Accessories,Orbit Buds,Completed,7600,34,0.03,2100
+2025-04-03,USA,Furniture,Workspace,Ergo Chair,Completed,9900,14,0.05,2800
+2025-04-24,Germany,Electronics,Smart Accessories,Orbit Watch,Returned,4800,17,0.07,800
+2025-05-07,Canada,Home Decor,Modern Living,Nova Vase,Completed,4300,28,0.04,1200
+2025-05-19,India,Office Supplies,Stationery,Executive Pen,Completed,3900,61,0.02,1100
+2025-06-04,USA,Electronics,Premium Devices,Alpha Phone,Completed,15200,24,0.03,5400
+2025-06-21,UAE,Furniture,Workspace,Ergo Desk,Completed,9100,12,0.07,2400
+2025-07-02,Germany,Electronics,Premium Devices,Alpha Tablet,Completed,14800,22,0.04,5000
+2025-07-14,Canada,Electronics,Smart Accessories,Orbit Buds,Completed,6900,29,0.03,1800
+2025-08-06,India,Home Decor,Modern Living,Aurora Lamp,Completed,6100,27,0.05,1700
+2025-08-28,USA,Office Supplies,Stationery,Executive Pen,Completed,4100,70,0.02,1250
+2025-09-09,UAE,Electronics,Premium Devices,Alpha Phone,Completed,16500,25,0.04,5900
+2025-09-23,Germany,Furniture,Workspace,Ergo Chair,Pending,8700,13,0.06,2100
+2025-10-03,Canada,Electronics,Smart Accessories,Orbit Watch,Completed,5700,19,0.03,1600
+2025-10-17,USA,Home Decor,Modern Living,Nova Vase,Completed,5200,31,0.04,1500
+2025-11-05,India,Electronics,Premium Devices,Alpha Tablet,Completed,17100,26,0.03,6200
+2025-11-21,UAE,Office Supplies,Stationery,Executive Pen,Completed,4500,75,0.02,1350
+2025-12-08,USA,Furniture,Workspace,Ergo Desk,Completed,10400,15,0.05,3000
+2025-12-19,Canada,Electronics,Premium Devices,Alpha Phone,Completed,17800,27,0.03,6400
