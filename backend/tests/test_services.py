@@ -1,5 +1,10 @@
+import json
+from datetime import datetime, timezone
+from types import SimpleNamespace
 import pandas as pd
+from app.schemas.dataset import DatasetRead
 from app.services.cleaning import CleaningService
+from app.services.dataset_loader import DatasetLoaderService
 from app.services.ml import MLService
 from app.services.profiling import ProfilingService
 def test_cleaning_standardizes_and_fills_values():
@@ -38,3 +43,32 @@ def test_ml_service_infers_problem_type():
     )
     service = MLService()
     assert service.infer_problem_type(frame["sales"]) == "regression"
+def test_dataset_loader_reads_single_json_object(tmp_path):
+    dataset_path = tmp_path / "dataset.json"
+    dataset_path.write_text(json.dumps({"sales": 120, "country": "USA"}), encoding="utf-8")
+    frame = DatasetLoaderService().load_dataframe(dataset_path, "json")
+    assert frame.to_dict(orient="records") == [{"sales": 120, "country": "USA"}]
+def test_dataset_read_preserves_schema_json_response_field():
+    payload = SimpleNamespace(
+        id="dataset-1",
+        user_id="user-1",
+        name="Sales",
+        original_filename="sales.csv",
+        file_type="csv",
+        status="ready",
+        size_bytes=128,
+        row_count=1,
+        column_count=2,
+        processing_progress=100.0,
+        schema_json={"columns": [{"name": "sales"}]},
+        profile_json={},
+        cleaning_summary={},
+        ai_insights=[],
+        sample_rows=[],
+        error_message=None,
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
+    )
+    dataset = DatasetRead.model_validate(payload)
+    dumped = dataset.model_dump(by_alias=True)
+    assert dumped["schema_json"] == {"columns": [{"name": "sales"}]}

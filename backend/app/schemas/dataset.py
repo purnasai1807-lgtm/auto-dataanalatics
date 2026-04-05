@@ -1,7 +1,7 @@
 from __future__ import annotations
 from datetime import datetime
 from typing import Any
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 class DatasetRead(BaseModel):
     id: str
     user_id: str
@@ -13,7 +13,10 @@ class DatasetRead(BaseModel):
     row_count: int | None
     column_count: int | None
     processing_progress: float
-    schema_json: dict[str, Any]
+    dataset_schema: dict[str, Any] = Field(
+        validation_alias="schema_json",
+        serialization_alias="schema_json",
+    )
     profile_json: dict[str, Any]
     cleaning_summary: dict[str, Any]
     ai_insights: list[Any]
@@ -21,7 +24,7 @@ class DatasetRead(BaseModel):
     error_message: str | None
     created_at: datetime
     updated_at: datetime
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 class DatasetSummary(BaseModel):
     id: str
     name: str
@@ -32,7 +35,7 @@ class DatasetSummary(BaseModel):
     column_count: int | None
     processing_progress: float
     created_at: datetime
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 class UploadResponse(BaseModel):
     dataset: DatasetSummary
     message: str
