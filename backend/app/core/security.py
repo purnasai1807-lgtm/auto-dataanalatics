@@ -15,8 +15,17 @@ def create_access_token(subject: str, expires_delta: timedelta | None = None) ->
     )
     payload = {"sub": subject, "exp": expire}
     return jwt.encode(payload, settings.secret_key, algorithm=settings.algorithm)
+def create_storage_token(key: str, expires_in: int = 3600) -> str:
+    expire = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
+    payload = {"scope": "storage:download", "key": key, "exp": expire}
+    return jwt.encode(payload, settings.secret_key, algorithm=settings.algorithm)
 def decode_access_token(token: str) -> dict[str, Any] | None:
     try:
         return jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
     except JWTError:
         return None
+def decode_storage_token(token: str) -> dict[str, Any] | None:
+    payload = decode_access_token(token)
+    if not payload or payload.get("scope") != "storage:download" or "key" not in payload:
+        return None
+    return payload

@@ -40,17 +40,19 @@ class Settings(BaseSettings):
     )
     frontend_url: str = "http://localhost:5173"
     database_url: str = "postgresql+asyncpg://postgres:postgres@db:5432/auto_analytics"
-    redis_url: str = "redis://redis:6379/0"
-    celery_broker_url: str = "redis://redis:6379/1"
-    celery_result_backend: str = "redis://redis:6379/2"
+    redis_url: str = ""
+    celery_broker_url: str = ""
+    celery_result_backend: str = ""
+    task_backend: str = "auto"
     openai_api_key: str | None = None
     openai_model: str = "gpt-5.2"
-    aws_access_key_id: str = "minioadmin"
-    aws_secret_access_key: str = "minioadmin"
+    storage_backend: str = "auto"
+    aws_access_key_id: str = ""
+    aws_secret_access_key: str = ""
     aws_region: str = "us-east-1"
-    s3_bucket: str = "auto-analytics"
-    s3_endpoint_url: str | None = "http://minio:9000"
-    s3_use_ssl: bool = False
+    s3_bucket: str = ""
+    s3_endpoint_url: str | None = None
+    s3_use_ssl: bool = True
     upload_chunk_size_mb: int = 8
     large_file_threshold_mb: int = 150
     websocket_poll_seconds: int = 3
@@ -88,6 +90,23 @@ class Settings(BaseSettings):
     @property
     def sync_database_url(self) -> str:
         return normalize_sync_database_url(self.database_url)
+    @property
+    def use_celery(self) -> bool:
+        if self.task_backend == "celery":
+            return True
+        if self.task_backend == "inline":
+            return False
+        return bool(self.celery_broker_url and self.celery_result_backend)
+    @property
+    def use_s3_storage(self) -> bool:
+        if self.storage_backend == "s3":
+            return True
+        if self.storage_backend == "local":
+            return False
+        has_bucket = bool(self.s3_bucket)
+        has_local_s3 = bool(self.s3_endpoint_url)
+        has_cloud_s3 = bool(self.aws_access_key_id and self.aws_secret_access_key)
+        return has_bucket and (has_local_s3 or has_cloud_s3)
 @lru_cache
 def get_settings() -> Settings:
     settings = Settings()

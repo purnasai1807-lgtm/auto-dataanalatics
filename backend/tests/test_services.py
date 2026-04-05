@@ -1,7 +1,11 @@
 import json
 from datetime import datetime, timezone
+from urllib.parse import parse_qs, urlparse
 from types import SimpleNamespace
 import pandas as pd
+from app.core.config import settings
+from app.core.security import decode_storage_token
+from app.core.storage import StorageService
 from app.schemas.dataset import DatasetRead
 from app.services.cleaning import CleaningService
 from app.services.dataset_loader import DatasetLoaderService
@@ -72,3 +76,39 @@ def test_dataset_read_preserves_schema_json_response_field():
     dataset = DatasetRead.model_validate(payload)
     dumped = dataset.model_dump(by_alias=True)
     assert dumped["schema_json"] == {"columns": [{"name": "sales"}]}
+def test_storage_service_uses_local_fallback_when_s3_is_unconfigured(tmp_path):
+    original_local_temp_dir = settings.local_temp_dir
+    original_storage_backend = settings.storage_backend
+    original_bucket = settings.s3_bucket
+    original_endpoint = settings.s3_endpoint_url
+    original_access_key = settings.aws_access_key_id
+    original_secret_key = settings.aws_secret_access_key
+    original_api_prefix = settings.api_v1_prefix
+    try:
+        settings.local_temp_dir = tmp_path
+        settings.storage_backend = "auto"
+        settings.s3_bucket = ""
+        settings.s3_endpoint_url = None
+        settings.aws_access_key_id = ""
+        settings.aws_secret_access_key = ""
+        settings.api_v1_prefix = "/api/v1"
+        storage = StorageService()
+        storage.ensure_bucket()
+        storage.upload_bytes(b"hello", "exports/report.txt")
+        assert storage.download_bytes("exports/report.txt") == b"hello"
+        download_url = storage.generate_presigned_url("exports/report.txt")
+        parsed_url = urlparse(download_url)
+        token = parse_qs(parsed_url.query)["token"][0]
+        payload = decode_storage_token(token)
+        assert storage.uses_local_storage is True
+        assert parsed_url.path == "/api/v1/storage/download"
+        assert payload["key"] == "exports/report.txt"
+        assert storage.resolve_local_path("exports/report.txt").exists()
+    finally:
+        settings.local_temp_dir = original_local_temp_dir
+        settings.storage_backend = original_storage_backend
+        settings.s3_bucket = original_bucket
+        settings.s3_endpoint_url = original_endpoint
+        settings.aws_access_key_id = original_access_key
+        settings.aws_secret_access_key = original_secret_key
+        settings.api_v1_prefix = original_api_prefix

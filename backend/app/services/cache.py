@@ -8,6 +8,8 @@ logger = logging.getLogger(__name__)
 class CacheService:
     async def get_json(self, key: str) -> Any | None:
         redis = get_async_redis()
+        if redis is None:
+            return None
         try:
             value = await redis.get(key)
             return json.loads(value) if value else None
@@ -18,6 +20,8 @@ class CacheService:
             await redis.aclose()
     async def set_json(self, key: str, value: Any, ttl: int | None = None) -> None:
         redis = get_async_redis()
+        if redis is None:
+            return
         try:
             await redis.set(key, json.dumps(value, default=str), ex=ttl or settings.cache_ttl_seconds)
         except Exception as exc:
@@ -26,6 +30,8 @@ class CacheService:
             await redis.aclose()
     async def delete_prefix(self, prefix: str) -> None:
         redis = get_async_redis()
+        if redis is None:
+            return
         try:
             keys = await redis.keys(f"{prefix}*")
             if keys:

@@ -1,11 +1,12 @@
 from __future__ import annotations
 import asyncio
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.core.storage import StorageService
+from app.core.task_runner import dispatch_task
 from app.models.dataset import Dataset
 from app.models.report import Report
 from app.models.user import User
@@ -24,6 +25,7 @@ async def list_reports(
 @router.post("/{dataset_id}/generate", response_model=ReportRead, status_code=status.HTTP_202_ACCEPTED)
 async def generate_report(
     dataset_id: str,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> ReportRead:
@@ -45,7 +47,7 @@ async def generate_report(
     db.add(report)
     await db.commit()
     await db.refresh(report)
-    generate_report_task.delay(report.id)
+    dispatch_task(background_tasks, generate_report_task, report.id)
     return report
 @router.get("/{report_id}/download")
 async def download_report(

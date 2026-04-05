@@ -1,11 +1,12 @@
 from __future__ import annotations
 import asyncio
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.core.storage import StorageService
+from app.core.task_runner import dispatch_task
 from app.models.dataset import Dataset
 from app.models.model_run import ModelRun
 from app.models.user import User
@@ -28,6 +29,7 @@ async def list_model_runs(
 async def train_model(
     dataset_id: str,
     payload: MLTrainRequest,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> ModelRunRead:
@@ -49,7 +51,7 @@ async def train_model(
     db.add(model_run)
     await db.commit()
     await db.refresh(model_run)
-    train_model_task.delay(model_run.id)
+    dispatch_task(background_tasks, train_model_task, model_run.id)
     return model_run
 @router.get("/runs/{run_id}", response_model=ModelRunRead)
 async def get_model_run(

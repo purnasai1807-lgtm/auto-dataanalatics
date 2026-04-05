@@ -3,13 +3,14 @@ import asyncio
 from pathlib import Path
 from uuid import uuid4
 import aiofiles
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.core.storage import StorageService
+from app.core.task_runner import dispatch_task
 from app.models.dataset import Dataset
 from app.models.user import User
 from app.schemas.dataset import DatasetRead, DatasetSummary, UploadResponse
@@ -42,6 +43,7 @@ async def get_dataset(
     return dataset
 @router.post("/upload", response_model=UploadResponse, status_code=status.HTTP_201_CREATED)
 async def upload_dataset(
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     name: str | None = Form(default=None),
     db: AsyncSession = Depends(get_db),
@@ -88,7 +90,7 @@ async def upload_dataset(
     db.add(dataset)
     await db.commit()
     await db.refresh(dataset)
-    process_dataset_task.delay(dataset.id)
+    dispatch_task(background_tasks, process_dataset_task, dataset.id)
     return UploadResponse(
         dataset=DatasetSummary.model_validate(dataset),
         message="Upload complete. Background processing has started.",

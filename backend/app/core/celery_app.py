@@ -3,8 +3,8 @@ from celery import Celery
 from app.core.config import settings
 celery_app = Celery(
     "auto_analytics",
-    broker=settings.celery_broker_url,
-    backend=settings.celery_result_backend,
+    broker=settings.celery_broker_url or "memory://",
+    backend=settings.celery_result_backend or "cache+memory://",
     include=["app.tasks.dataset_tasks"],
 )
 celery_app.conf.update(
