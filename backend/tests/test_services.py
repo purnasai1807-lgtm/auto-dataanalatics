@@ -1,3 +1,4 @@
+import asyncio
 import json
 from datetime import datetime, timezone
 from urllib.parse import parse_qs, urlparse
@@ -7,6 +8,7 @@ from app.core.config import settings
 from app.core.security import decode_storage_token
 from app.core.storage import StorageService
 from app.schemas.dataset import DatasetRead
+from app.services.analytics import AnalyticsService
 from app.services.cleaning import CleaningService
 from app.services.dataset_loader import DatasetLoaderService
 from app.services.ml import MLService
@@ -53,6 +55,37 @@ def test_profiling_builds_dashboard_after_csv_round_trip(tmp_path):
     dashboard = ProfilingService().build_dashboard(reloaded)
     assert dashboard["charts"]["time_series"]["data"]
     assert dashboard["filter_options"]["date_range"]["min"] == "2025-01-01T00:00:00+00:00"
+def test_analytics_service_uses_stored_profile_for_unfiltered_dashboard():
+    dataset = SimpleNamespace(
+        id="dataset-1",
+        profile_json={
+            "semantics": {"date_column": "order_date"},
+            "filter_options": {"country": ["USA"]},
+            "default_dashboard": {
+                "kpis": {"orders": 3, "total_sales": 4200.0},
+                "charts": {"time_series": {"data": [{"period": "2025-01-01", "value": 4200.0}]}},
+                "insights": [{"title": "Stored insight", "detail": "From profile", "severity": "positive"}],
+            },
+        },
+        ai_insights=[{"title": "AI insight", "detail": "From dataset", "severity": "positive"}],
+        sample_rows=[{"order_date": "2025-01-01", "sales": 4200.0}],
+        updated_at=datetime.now(timezone.utc),
+    )
+    service = AnalyticsService()
+    async def get_json(_: str):
+        return None
+    async def set_json(_: str, value: dict, ttl: int | None = None):
+        cache_state["value"] = value
+    async def fail_load_dataset_frame(_: object):
+        raise AssertionError("build_dashboard should not reload the dataset for unfiltered requests")
+    cache_state: dict[str, object] = {}
+    service.cache = SimpleNamespace(get_json=get_json, set_json=set_json)
+    service.load_dataset_frame = fail_load_dataset_frame
+    payload = asyncio.run(service.build_dashboard(dataset, {}))
+    assert payload["kpis"]["orders"] == 3
+    assert payload["insights"][0]["title"] == "AI insight"
+    assert payload["sample_rows"] == dataset.sample_rows
+    assert cache_state["value"]["dataset_id"] == dataset.id
 def test_ml_service_infers_problem_type():
     frame = pd.DataFrame(
         {

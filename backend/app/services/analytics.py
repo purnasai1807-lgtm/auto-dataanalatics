@@ -15,6 +15,21 @@ class AnalyticsService:
         self.loader = DatasetLoaderService()
         self.profiler = ProfilingService()
         self.cache = CacheService()
+    def build_stored_dashboard(self, dataset: Dataset) -> dict[str, Any] | None:
+        profile = dataset.profile_json or {}
+        default_dashboard = profile.get("default_dashboard")
+        if not isinstance(default_dashboard, dict):
+            return None
+        return {
+            "dataset_id": dataset.id,
+            "filters": {},
+            "semantics": profile.get("semantics", {}),
+            "kpis": default_dashboard.get("kpis", {}),
+            "charts": default_dashboard.get("charts", {}),
+            "filter_options": profile.get("filter_options", {}),
+            "insights": dataset.ai_insights or default_dashboard.get("insights", []),
+            "sample_rows": dataset.sample_rows or [],
+        }
     async def load_dataset_frame(self, dataset: Dataset):
         storage_key = dataset.cleaned_storage_key or dataset.original_storage_key
         file_type = "csv" if dataset.cleaned_storage_key else dataset.file_type
@@ -30,6 +45,11 @@ class AnalyticsService:
         cached = await self.cache.get_json(cache_key)
         if cached:
             return cached
+        if not filters:
+            stored_dashboard = self.build_stored_dashboard(dataset)
+            if stored_dashboard:
+                await self.cache.set_json(cache_key, stored_dashboard)
+                return stored_dashboard
         frame = await self.load_dataset_frame(dataset)
         dashboard = await asyncio.to_thread(self.profiler.build_dashboard, frame, filters or {})
         payload = {"dataset_id": dataset.id, **dashboard}
