@@ -48,6 +48,8 @@ Then open:
 - Railway backend service config: `backend/railway.backend.json`
 - Railway worker service config: `backend/railway.worker.json`
 - Railway frontend service config: `frontend/railway.frontend.json`
+- For an always-on hosted setup, the fastest path is the Render Blueprint in `render.yaml` with managed Postgres, Redis, a backend web service, a Celery worker, and the frontend.
+- See `docs/DEPLOYMENT.md` for the 24/7 deployment checklist and post-deploy health checks.
 ## Environment variables
 Copy `.env.example` to `.env` and update:
 - `SECRET_KEY`

@@ -22,6 +22,10 @@ services:
     envVars:
       - key: ENVIRONMENT
         value: production
+      - key: TASK_BACKEND
+        value: celery
+      - key: STORAGE_BACKEND
+        value: s3
       - key: SECRET_KEY
         generateValue: true
       - key: DATABASE_URL
@@ -73,6 +77,16 @@ services:
           name: auto-analytics-backend
           type: web
           envVarKey: ENVIRONMENT
+      - key: TASK_BACKEND
+        fromService:
+          name: auto-analytics-backend
+          type: web
+          envVarKey: TASK_BACKEND
+      - key: STORAGE_BACKEND
+        fromService:
+          name: auto-analytics-backend
+          type: web
+          envVarKey: STORAGE_BACKEND
       - key: SECRET_KEY
         fromService:
           name: auto-analytics-backend
