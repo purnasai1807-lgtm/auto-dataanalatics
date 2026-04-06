@@ -1,7 +1,7 @@
 import { FormEvent, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { api, setStoredToken, setStoredUser } from "../api/client";
+import { api, getApiErrorMessage, setStoredToken, setStoredUser } from "../api/client";
 import { TokenResponse } from "../api/types";
 function LoginPage() {
   const navigate = useNavigate();
@@ -18,8 +18,8 @@ function LoginPage() {
       setStoredToken(data.access_token);
       setStoredUser(data.user);
       navigate("/workspace");
-    } catch (err: any) {
-      setError(err?.response?.data?.detail ?? "Login failed");
+    } catch (error: unknown) {
+      setError(getApiErrorMessage(error, "Login failed"));
     } finally {
       setLoading(false);
     }

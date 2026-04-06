@@ -37,6 +37,12 @@ export function getApiErrorMessage(error: unknown, fallback: string) {
     if (typeof detail === "string" && detail.trim()) {
       return detail;
     }
+    if (Array.isArray(detail) && detail.length > 0) {
+      const firstIssue = detail[0];
+      if (typeof firstIssue?.msg === "string" && firstIssue.msg.trim()) {
+        return firstIssue.msg;
+      }
+    }
     if (typeof error.message === "string" && error.message.trim()) {
       return error.message;
     }
