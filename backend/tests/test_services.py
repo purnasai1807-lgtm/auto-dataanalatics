@@ -37,6 +37,22 @@ def test_profiling_builds_dashboard_kpis():
     assert dashboard["kpis"]["orders"] == 3
     assert dashboard["kpis"]["total_sales"] == 4200.0
     assert dashboard["charts"]["time_series"]["data"]
+def test_profiling_builds_dashboard_after_csv_round_trip(tmp_path):
+    frame = pd.DataFrame(
+        {
+            "order_date": pd.to_datetime(["2025-01-01", "2025-02-01", "2025-03-01"], utc=True),
+            "country": ["USA", "India", "USA"],
+            "sales": [1000, 1500, 1700],
+            "quantity": [5, 8, 9],
+            "status": ["won", "won", "won"],
+        }
+    )
+    dataset_path = tmp_path / "dataset.csv"
+    DatasetLoaderService().save_dataframe(frame, dataset_path)
+    reloaded = DatasetLoaderService().load_dataframe(dataset_path, "csv")
+    dashboard = ProfilingService().build_dashboard(reloaded)
+    assert dashboard["charts"]["time_series"]["data"]
+    assert dashboard["filter_options"]["date_range"]["min"] == "2025-01-01T00:00:00+00:00"
 def test_ml_service_infers_problem_type():
     frame = pd.DataFrame(
         {

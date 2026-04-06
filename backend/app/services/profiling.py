@@ -132,6 +132,16 @@ class ProfilingService:
                 ]
             schema.append(entry)
         return {"columns": schema}
+    def coerce_datetime_column(self, df: pd.DataFrame, column: str | None) -> pd.Series | None:
+        if not column or column not in df.columns:
+            return None
+        series = df[column]
+        if is_datetime64_any_dtype(series):
+            return series
+        coerced = pd.to_datetime(series, errors="coerce", utc=True)
+        if coerced.notna().sum() == 0:
+            return None
+        return coerced
     def dataframe_records(self, df: pd.DataFrame, limit: int = 10) -> list[dict[str, Any]]:
         sample = df.head(limit).copy()
         for column in sample.columns:
@@ -148,6 +158,9 @@ class ProfilingService:
             return df
         filtered = df.copy()
         date_column = semantics.get("date_column")
+        date_series = self.coerce_datetime_column(filtered, date_column)
+        if date_column and date_series is not None:
+            filtered[date_column] = date_series
         if date_column and filters.get("date_from"):
             filtered = filtered[filtered[date_column] >= pd.to_datetime(filters["date_from"], utc=True)]
         if date_column and filters.get("date_to"):
@@ -167,10 +180,11 @@ class ProfilingService:
                 values = df[column].dropna().astype(str).value_counts().head(50).index.tolist()
                 options[field.replace("_column", "")] = values
         date_column = semantics.get("date_column")
-        if date_column and date_column in df.columns and not df[date_column].dropna().empty:
+        date_series = self.coerce_datetime_column(df, date_column)
+        if date_series is not None and not date_series.dropna().empty:
             options["date_range"] = {
-                "min": make_json_safe(df[date_column].min()),
-                "max": make_json_safe(df[date_column].max()),
+                "min": make_json_safe(date_series.min()),
+                "max": make_json_safe(date_series.max()),
             }
         return options
     def build_time_series(self, df: pd.DataFrame, semantics: dict[str, Any]) -> dict[str, Any]:
@@ -178,14 +192,18 @@ class ProfilingService:
         metric_column = semantics.get("sales_column") or semantics.get("quantity_column")
         if not date_column or date_column not in df.columns:
             return {"data": [], "x_key": "period", "y_key": "value"}
-        series_df = df[[date_column] + ([metric_column] if metric_column else [])].copy().dropna(subset=[date_column])
+        series_df = df[[date_column] + ([metric_column] if metric_column else [])].copy()
+        date_series = self.coerce_datetime_column(series_df, date_column)
+        if date_series is None:
+            return {"data": [], "x_key": "period", "y_key": "value"}
+        series_df[date_column] = date_series
+        series_df = series_df.dropna(subset=[date_column])
         if series_df.empty:
             return {"data": [], "x_key": "period", "y_key": "value"}
         period = "M" if series_df[date_column].nunique() > 31 else "D"
-        date_series = series_df[date_column]
-        if getattr(date_series.dt, "tz", None) is not None:
-            date_series = date_series.dt.tz_localize(None)
-        series_df["period"] = date_series.dt.to_period(period).dt.to_timestamp()
+        if getattr(series_df[date_column].dt, "tz", None) is not None:
+            series_df[date_column] = series_df[date_column].dt.tz_localize(None)
+        series_df["period"] = series_df[date_column].dt.to_period(period).dt.to_timestamp()
         if metric_column:
             grouped = series_df.groupby("period")[metric_column].sum().reset_index(name="value")
         else:
