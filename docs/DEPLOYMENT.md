@@ -18,14 +18,30 @@ This is the simplest always-on path for this repo because the Blueprint already 
 10. Keep the web and worker services on paid always-on plans such as the `starter` plan defined in `render.yaml`; do not downgrade them to sleeping/free-style tiers if you want 24/7 uptime.
 ## Railway
 1. Create a Railway project.
-2. Add a PostgreSQL service and a Redis service.
+2. Add a PostgreSQL service, a Redis service, and a Bucket service.
 3. Create a service named `backend` from this repo, set Root Directory to `backend`, set Config File Path to `/backend/railway.backend.json`, and deploy it.
 4. Create a service named `worker` from this repo, set Root Directory to `backend`, set Config File Path to `/backend/railway.worker.json`, and deploy it.
 5. Create a service named `frontend` from this repo, set Root Directory to `frontend`, set Config File Path to `/frontend/railway.frontend.json`, and deploy it.
-6. In `backend` variables, set `DATABASE_URL=${{Postgres.DATABASE_URL}}`, `REDIS_URL=${{Redis.REDIS_URL}}`, `CELERY_BROKER_URL=${{Redis.REDIS_URL}}`, `CELERY_RESULT_BACKEND=${{Redis.REDIS_URL}}`, `ENVIRONMENT=production`, `OPENAI_API_KEY`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION=us-east-1`, `S3_BUCKET`, and leave `S3_ENDPOINT_URL` empty for AWS S3.
-7. In `worker` variables, mirror the backend runtime values or reference them from `backend` using Railway reference variables.
-8. In `frontend` variables, set `UPSTREAM_API_HOSTPORT=${{backend.RAILWAY_PRIVATE_DOMAIN}}:8000`.
-9. Add a public domain to `frontend`; Railway will inject `PORT` automatically.
+6. In `backend` variables, set:
+- `DATABASE_URL=${{Postgres.DATABASE_URL}}`
+- `REDIS_URL=${{Redis.REDIS_URL}}`
+- `CELERY_BROKER_URL=${{Redis.REDIS_URL}}`
+- `CELERY_RESULT_BACKEND=${{Redis.REDIS_URL}}`
+- `TASK_BACKEND=celery`
+- `STORAGE_BACKEND=s3`
+- `ENVIRONMENT=production`
+- `AWS_ACCESS_KEY_ID=${{Bucket.ACCESS_KEY_ID}}`
+- `AWS_SECRET_ACCESS_KEY=${{Bucket.SECRET_ACCESS_KEY}}`
+- `AWS_REGION=${{Bucket.REGION}}`
+- `S3_BUCKET=${{Bucket.BUCKET}}`
+- `S3_ENDPOINT_URL=${{Bucket.ENDPOINT}}`
+- `S3_USE_SSL=true`
+- `OPENAI_API_KEY` if you want live AI features
+7. In `worker` variables, mirror the backend runtime values or reference them from `backend` using Railway reference variables so the queue worker uses the same database, Redis, and bucket credentials.
+8. In `frontend` variables, set `UPSTREAM_API_HOSTPORT=${{backend.RAILWAY_PRIVATE_DOMAIN}}:8000` and leave `UPSTREAM_API_SCHEME=http`.
+9. Open `frontend` public networking and click Generate Domain. Then copy that public URL into `backend` as `FRONTEND_URL` and `ALLOWED_ORIGINS`.
+10. Verify `backend` at `/api/v1/healthz` shows `task_backend=celery`, `storage_backend=s3`, and `degraded=false`.
+11. Keep `backend`, `worker`, `Postgres`, `Redis`, and `Bucket` running in the same Railway project environment so the private-network and variable references stay valid.
 ## Durable production mode
 Set these values when Redis and S3-compatible object storage are available:
 - `TASK_BACKEND=celery`
