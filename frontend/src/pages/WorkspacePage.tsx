@@ -13,8 +13,10 @@ import ReportsPanel from "../components/reports/ReportsPanel";
 import {
   api,
   clearStoredAuth,
+  getApiErrorMessage,
   getStoredToken,
   getStoredUser,
+  isUnauthorizedError,
   setStoredUser,
 } from "../api/client";
 import {
@@ -53,6 +55,7 @@ function WorkspacePage() {
   const [training, setTraining] = useState(false);
   const [generatingReport, setGeneratingReport] = useState(false);
   const [asking, setAsking] = useState(false);
+  const [actionError, setActionError] = useState("");
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [selectedTarget, setSelectedTarget] = useState("");
   const [selectedProblemType, setSelectedProblemType] = useState("");
@@ -64,6 +67,22 @@ function WorkspacePage() {
   const currentReports = useMemo(
     () => reports.filter((report) => report.dataset_id === selectedDatasetId),
     [reports, selectedDatasetId],
+  );
+  const redirectToLogin = useCallback(() => {
+    clearStoredAuth();
+    navigate("/login");
+  }, [navigate]);
+  const handleRequestError = useCallback(
+    (error: unknown, fallbackMessage: string, nextStatusText: string) => {
+      if (isUnauthorizedError(error)) {
+        redirectToLogin();
+        return true;
+      }
+      setActionError(getApiErrorMessage(error, fallbackMessage));
+      setStatusText(nextStatusText);
+      return false;
+    },
+    [redirectToLogin],
   );
   const hydrateWorkspace = useCallback(async () => {
     if (!token) {
@@ -81,30 +100,34 @@ function WorkspacePage() {
       setDatasets(datasetList);
       setReports(reportList);
       setSelectedDatasetId((current) => current ?? datasetList[0]?.id ?? null);
-    } catch {
-      clearStoredAuth();
-      navigate("/login");
+      setActionError("");
+      setStatusText("Workspace synchronized");
+    } catch (error) {
+      handleRequestError(error, "Unable to refresh the workspace right now.", "Workspace refresh failed");
     }
-  }, [navigate, token]);
+  }, [handleRequestError, navigate, token]);
   const fetchDatasetDetail = useCallback(
     async (datasetId: string) => {
-      const [{ data: detail }, { data: runs }] = await Promise.all([
-        api.get<DatasetDetail>(`/datasets/${datasetId}`),
-        api.get<ModelRun[]>(`/ml/datasets/${datasetId}/runs`),
-      ]);
-      setDatasetDetail(detail);
-      setModelRuns(runs);
-      if (detail.status === "ready") {
-        const params = Object.fromEntries(
-          Object.entries(filters).filter(([, value]) => value),
-        );
-        const { data } = await api.get<DashboardResponse>(`/analytics/${datasetId}/dashboard`, { params });
-        setDashboard(data);
-      } else {
-        setDashboard(null);
+      try {
+        const [{ data: detail }, { data: runs }] = await Promise.all([
+          api.get<DatasetDetail>(`/datasets/${datasetId}`),
+          api.get<ModelRun[]>(`/ml/datasets/${datasetId}/runs`),
+        ]);
+        setDatasetDetail(detail);
+        setModelRuns(runs);
+        if (detail.status === "ready") {
+          const params = Object.fromEntries(Object.entries(filters).filter(([, value]) => value));
+          const { data } = await api.get<DashboardResponse>(`/analytics/${datasetId}/dashboard`, { params });
+          setDashboard(data);
+        } else {
+          setDashboard(null);
+        }
+        setActionError("");
+      } catch (error) {
+        handleRequestError(error, "Unable to load the latest dataset details.", "Dataset refresh failed");
       }
     },
-    [filters],
+    [filters, handleRequestError],
   );
   useEffect(() => {
     void hydrateWorkspace();
@@ -122,10 +145,10 @@ function WorkspacePage() {
     if (selectedDatasetId && datasetDetail?.status === "ready") {
       void fetchDatasetDetail(selectedDatasetId);
     }
-  }, [filters]);
+  }, [datasetDetail?.status, fetchDatasetDetail, selectedDatasetId]);
   useEffect(() => {
     const targetCandidates =
-      ((datasetDetail?.profile_json?.semantics as Record<string, any> | undefined)?.target_candidates as string[] | undefined) ?? [];
+      ((datasetDetail?.profile_json?.semantics as Record<string, unknown> | undefined)?.target_candidates as string[] | undefined) ?? [];
     if (!selectedTarget && targetCandidates[0]) {
       setSelectedTarget(targetCandidates[0]);
     }
@@ -135,7 +158,7 @@ function WorkspacePage() {
       if (payload?.type !== "dataset_status") {
         return;
       }
-      setStatusText(`Dataset ${payload.dataset.status} • ${payload.dataset.processing_progress}%`);
+      setStatusText(`Dataset ${payload.dataset.status} | ${payload.dataset.processing_progress}%`);
       const latestRunStatus = modelRuns[0]?.status ?? null;
       const latestReportStatus = currentReports[0]?.status ?? null;
       const needsRefresh =
@@ -165,6 +188,7 @@ function WorkspacePage() {
     try {
       setUploading(true);
       setUploadProgress(0);
+      setActionError("");
       const formData = new FormData();
       formData.append("file", file);
       formData.append("name", name);
@@ -179,6 +203,9 @@ function WorkspacePage() {
       });
       setSelectedDatasetId(data.dataset.id);
       await hydrateWorkspace();
+      setStatusText("Upload completed successfully");
+    } catch (error) {
+      handleRequestError(error, "Upload failed.", "Upload failed");
     } finally {
       setUploading(false);
       setUploadProgress(100);
@@ -190,11 +217,15 @@ function WorkspacePage() {
     }
     setTraining(true);
     try {
+      setActionError("");
       await api.post(`/ml/${selectedDatasetId}/train`, {
         target_column: selectedTarget || null,
         problem_type: selectedProblemType || null,
       });
       await fetchDatasetDetail(selectedDatasetId);
+      setStatusText("Model training started");
+    } catch (error) {
+      handleRequestError(error, "Model training could not be started.", "Model training failed to start");
     } finally {
       setTraining(false);
     }
@@ -206,8 +237,17 @@ function WorkspacePage() {
     setChatMessages((current) => [...current, { role: "user", content: question }]);
     setAsking(true);
     try {
+      setActionError("");
       const { data } = await api.post<ChatResponse>(`/chat/${selectedDatasetId}/ask`, { question });
       setChatMessages((current) => [...current, { role: "assistant", content: data.answer, response: data }]);
+    } catch (error) {
+      const redirected = handleRequestError(error, "Chat request failed.", "Chat request failed");
+      if (!redirected) {
+        setChatMessages((current) => [
+          ...current,
+          { role: "assistant", content: "I could not answer that just now. Please try again." },
+        ]);
+      }
     } finally {
       setAsking(false);
     }
@@ -218,15 +258,24 @@ function WorkspacePage() {
     }
     setGeneratingReport(true);
     try {
+      setActionError("");
       await api.post(`/reports/${selectedDatasetId}/generate`);
       await hydrateWorkspace();
+      setStatusText("Report generation started");
+    } catch (error) {
+      handleRequestError(error, "Report generation could not be started.", "Report generation failed to start");
     } finally {
       setGeneratingReport(false);
     }
   };
   const openDownload = async (path: string) => {
-    const { data } = await api.get<{ url: string }>(path);
-    window.open(data.url, "_blank");
+    try {
+      setActionError("");
+      const { data } = await api.get<{ url: string }>(path);
+      window.open(data.url, "_blank");
+    } catch (error) {
+      handleRequestError(error, "Download failed.", "Download failed");
+    }
   };
   return (
     <AppShell
@@ -284,7 +333,7 @@ function WorkspacePage() {
                     </span>
                   </div>
                   <div className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                    {formatDate(dataset.created_at)} • {formatNumber(dataset.processing_progress)}%
+                    {formatDate(dataset.created_at)} | {formatNumber(dataset.processing_progress)}%
                   </div>
                 </button>
               ))}
@@ -292,6 +341,11 @@ function WorkspacePage() {
           </section>
         </motion.aside>
         <motion.main initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+          {actionError ? (
+            <section className="rounded-[24px] border border-amber-300/70 bg-amber-50/80 px-5 py-4 text-sm text-amber-900 shadow-panel dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-100">
+              {actionError}
+            </section>
+          ) : null}
           {selectedDatasetSummary ? (
             <>
               <section className="glass-panel rounded-[28px] p-5 shadow-panel">
@@ -305,8 +359,8 @@ function WorkspacePage() {
                       {selectedDatasetSummary.name}
                     </h2>
                     <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                      {selectedDatasetSummary.original_filename} • {selectedDatasetSummary.status} •{" "}
-                      {selectedDatasetSummary.row_count ?? "--"} rows • {selectedDatasetSummary.column_count ?? "--"} columns
+                      {selectedDatasetSummary.original_filename} | {selectedDatasetSummary.status} |{" "}
+                      {selectedDatasetSummary.row_count ?? "--"} rows | {selectedDatasetSummary.column_count ?? "--"} columns
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-3">

@@ -112,3 +112,38 @@ def test_storage_service_uses_local_fallback_when_s3_is_unconfigured(tmp_path):
         settings.aws_access_key_id = original_access_key
         settings.aws_secret_access_key = original_secret_key
         settings.api_v1_prefix = original_api_prefix
+def test_runtime_summary_reports_fallback_modes():
+    original_environment = settings.environment
+    original_task_backend = settings.task_backend
+    original_storage_backend = settings.storage_backend
+    original_broker = settings.celery_broker_url
+    original_result_backend = settings.celery_result_backend
+    original_bucket = settings.s3_bucket
+    original_endpoint = settings.s3_endpoint_url
+    original_access_key = settings.aws_access_key_id
+    original_secret_key = settings.aws_secret_access_key
+    try:
+        settings.environment = "production"
+        settings.task_backend = "inline"
+        settings.storage_backend = "local"
+        settings.celery_broker_url = ""
+        settings.celery_result_backend = ""
+        settings.s3_bucket = ""
+        settings.s3_endpoint_url = None
+        settings.aws_access_key_id = ""
+        settings.aws_secret_access_key = ""
+        summary = settings.runtime_summary
+        assert summary["task_backend"] == "inline"
+        assert summary["storage_backend"] == "local"
+        assert summary["degraded"] is True
+        assert len(summary["warnings"]) == 2
+    finally:
+        settings.environment = original_environment
+        settings.task_backend = original_task_backend
+        settings.storage_backend = original_storage_backend
+        settings.celery_broker_url = original_broker
+        settings.celery_result_backend = original_result_backend
+        settings.s3_bucket = original_bucket
+        settings.s3_endpoint_url = original_endpoint
+        settings.aws_access_key_id = original_access_key
+        settings.aws_secret_access_key = original_secret_key

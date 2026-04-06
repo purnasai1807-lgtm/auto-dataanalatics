@@ -28,3 +28,21 @@ export function getStoredUser<T>() {
   const raw = localStorage.getItem(USER_KEY);
   return raw ? (JSON.parse(raw) as T) : null;
 }
+export function isUnauthorizedError(error: unknown) {
+  return axios.isAxiosError(error) && error.response?.status === 401;
+}
+export function getApiErrorMessage(error: unknown, fallback: string) {
+  if (axios.isAxiosError(error)) {
+    const detail = error.response?.data?.detail;
+    if (typeof detail === "string" && detail.trim()) {
+      return detail;
+    }
+    if (typeof error.message === "string" && error.message.trim()) {
+      return error.message;
+    }
+  }
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
+  return fallback;
+}

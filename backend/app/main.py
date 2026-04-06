@@ -1,5 +1,6 @@
 from __future__ import annotations
 import asyncio
+import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -13,10 +14,14 @@ from app.core.storage import StorageService
 from app.models.dataset import Dataset
 from app.models.model_run import ModelRun
 from app.models.report import Report
+logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     await init_db()
     await asyncio.to_thread(StorageService().ensure_bucket)
+    logger.info("Runtime summary: %s", settings.runtime_summary)
+    for warning in settings.runtime_warnings:
+        logger.warning(warning)
     yield
     await async_engine.dispose()
 app = FastAPI(

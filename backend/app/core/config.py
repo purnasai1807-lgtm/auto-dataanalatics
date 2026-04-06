@@ -91,6 +91,12 @@ class Settings(BaseSettings):
     def sync_database_url(self) -> str:
         return normalize_sync_database_url(self.database_url)
     @property
+    def active_task_backend(self) -> str:
+        return "celery" if self.use_celery else "inline"
+    @property
+    def active_storage_backend(self) -> str:
+        return "s3" if self.use_s3_storage else "local"
+    @property
     def use_celery(self) -> bool:
         if self.task_backend == "celery":
             return True
@@ -107,6 +113,24 @@ class Settings(BaseSettings):
         has_local_s3 = bool(self.s3_endpoint_url)
         has_cloud_s3 = bool(self.aws_access_key_id and self.aws_secret_access_key)
         return has_bucket and (has_local_s3 or has_cloud_s3)
+    @property
+    def runtime_warnings(self) -> list[str]:
+        warnings: list[str] = []
+        if self.environment.lower() == "production":
+            if self.active_storage_backend == "local":
+                warnings.append("Local container storage is active; uploads and exports are not durable across redeploys.")
+            if self.active_task_backend == "inline":
+                warnings.append("Inline background tasks are active; long-running jobs are not queue-backed.")
+        return warnings
+    @property
+    def runtime_summary(self) -> dict[str, Any]:
+        return {
+            "environment": self.environment,
+            "task_backend": self.active_task_backend,
+            "storage_backend": self.active_storage_backend,
+            "degraded": bool(self.runtime_warnings),
+            "warnings": self.runtime_warnings,
+        }
 @lru_cache
 def get_settings() -> Settings:
     settings = Settings()

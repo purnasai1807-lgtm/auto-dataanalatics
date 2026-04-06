@@ -21,6 +21,26 @@
 7. In `worker` variables, mirror the backend runtime values or reference them from `backend` using Railway reference variables.
 8. In `frontend` variables, set `UPSTREAM_API_HOSTPORT=${{backend.RAILWAY_PRIVATE_DOMAIN}}:8000`.
 9. Add a public domain to `frontend`; Railway will inject `PORT` automatically.
+## Durable production mode
+Set these values when Redis and S3-compatible object storage are available:
+- `TASK_BACKEND=celery`
+- `STORAGE_BACKEND=s3`
+- `REDIS_URL`
+- `CELERY_BROKER_URL`
+- `CELERY_RESULT_BACKEND`
+- `AWS_ACCESS_KEY_ID`
+- `AWS_SECRET_ACCESS_KEY`
+- `S3_BUCKET`
+- `S3_ENDPOINT_URL`
+## Railway fallback mode
+Use this temporary profile only when Railway Redis or bucket storage is not available:
+- `TASK_BACKEND=inline`
+- `STORAGE_BACKEND=local`
+- leave Redis and S3 credential variables empty
+- keep the worker service optional in this mode
+## Health checks
+- `GET /api/v1/healthz` returns the active runtime mode and whether the service is running in fallback mode.
+- `GET /api/v1/ready` returns the same deployment summary for readiness checks.
 ## AWS
 Use this mapping for an always-on production stack:
 - Frontend: ECS or S3 + CloudFront

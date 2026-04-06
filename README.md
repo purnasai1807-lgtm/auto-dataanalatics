@@ -55,14 +55,21 @@ Copy `.env.example` to `.env` and update:
 - `REDIS_URL`
 - `CELERY_BROKER_URL`
 - `CELERY_RESULT_BACKEND`
+- `TASK_BACKEND`
 - `OPENAI_API_KEY`
 - `OPENAI_MODEL`
+- `STORAGE_BACKEND`
 - `AWS_ACCESS_KEY_ID`
 - `AWS_SECRET_ACCESS_KEY`
 - `AWS_REGION`
 - `S3_BUCKET`
 - `S3_ENDPOINT_URL`
 - `ALLOWED_ORIGINS`
+## Runtime modes
+- `TASK_BACKEND=auto` uses Celery when Redis broker/result variables are present and falls back to inline background tasks otherwise.
+- `STORAGE_BACKEND=auto` uses S3-compatible storage when bucket credentials are present and falls back to local container storage otherwise.
+- For durable production, set `TASK_BACKEND=celery` and `STORAGE_BACKEND=s3`.
+- The health endpoints now expose the active runtime mode and whether the app is running in fallback mode.
 ## OpenAI integration
 The backend uses the official OpenAI Python SDK `responses.create(...)` pattern for:
 - insight narration
