@@ -2,9 +2,24 @@ import axios from "axios";
 
 const TOKEN_KEY = "insightforge-token";
 const USER_KEY = "insightforge-user";
+const RAILWAY_PUBLIC_API_BASE_URL = "https://auto-analytics-backend-production.up.railway.app/api";
+
+function resolveApiBaseUrl() {
+  const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL;
+
+  if (typeof configuredBaseUrl === "string" && configuredBaseUrl.trim()) {
+    return configuredBaseUrl;
+  }
+
+  if (typeof window !== "undefined" && window.location.hostname === "auto-analytics-frontend-production.up.railway.app") {
+    return RAILWAY_PUBLIC_API_BASE_URL;
+  }
+
+  return "/api";
+}
 
 export const http = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL ?? "/api"
+  baseURL: resolveApiBaseUrl()
 });
 
 http.interceptors.request.use((config) => {
