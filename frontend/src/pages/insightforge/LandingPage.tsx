@@ -32,12 +32,6 @@ const features = [
 const testimonials = [
   {
     quote:
-      "InsightForge AI cut our weekly spreadsheet review from two hours to ten minutes and gave leadership a cleaner story to act on.",
-    name: "Maya Chen",
-    role: "Growth Lead, Northstar Commerce"
-  },
-  {
-    quote:
       "We used the sample dataset in a sales demo and closed our first analytics client the same week. It looks and feels launch-ready.",
     name: "AVVARU PURNASAI",
     role: ""
