@@ -73,6 +73,9 @@ async function upsertSeedUser(userSeed, reportSeed, reset) {
       password: userSeed.password,
       plan: userSeed.plan,
       onboardingCompleted: userSeed.onboardingCompleted,
+      emailVerificationRequired: false,
+      emailVerifiedAt: new Date(),
+      verificationEmailSentAt: null,
       reportsUsed: userSeed.plan === "free" ? 1 : 0,
       totalReportsGenerated: userSeed.reportCount
     });
@@ -81,6 +84,9 @@ async function upsertSeedUser(userSeed, reportSeed, reset) {
     user.password = userSeed.password;
     user.plan = userSeed.plan;
     user.onboardingCompleted = userSeed.onboardingCompleted;
+    user.emailVerificationRequired = false;
+    user.emailVerifiedAt = new Date();
+    user.verificationEmailSentAt = null;
     user.reportsUsed = userSeed.plan === "free" ? 1 : 0;
     user.totalReportsGenerated = userSeed.reportCount;
     user.usageWindowStartedAt = new Date();

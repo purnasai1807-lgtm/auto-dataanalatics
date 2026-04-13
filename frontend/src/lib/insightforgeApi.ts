@@ -4,6 +4,7 @@ export interface AuthUser {
   id: string;
   name: string;
   email: string;
+  emailVerified: boolean;
   plan: "free" | "pro";
   reportsUsed: number;
   totalReportsGenerated: number;
@@ -24,6 +25,18 @@ export interface AuthPayload {
   token: string;
   user: AuthUser;
   usage: UsageSnapshot;
+}
+
+export interface VerificationPendingResponse {
+  message: string;
+  verificationRequired: true;
+  email: string;
+}
+
+export interface VerifyEmailResponse {
+  message: string;
+  verified: true;
+  email: string;
 }
 
 export interface Insight {
@@ -120,7 +133,7 @@ function normalizeReport(report: Report): Report {
 }
 
 export async function signup(payload: { name: string; email: string; password: string }) {
-  const { data } = await http.post<AuthPayload>("/auth/signup", payload);
+  const { data } = await http.post<AuthPayload | VerificationPendingResponse>("/auth/signup", payload);
   return data;
 }
 
@@ -131,6 +144,19 @@ export async function login(payload: { email: string; password: string }) {
 
 export async function getMe() {
   const { data } = await http.get<{ user: AuthUser; usage: UsageSnapshot }>("/auth/me");
+  return data;
+}
+
+export async function verifyEmail(token: string) {
+  const { data } = await http.post<VerifyEmailResponse>("/auth/verify-email", { token });
+  return data;
+}
+
+export async function resendVerificationEmail(email: string) {
+  const { data } = await http.post<VerificationPendingResponse | { message: string; email: string }>(
+    "/auth/resend-verification",
+    { email }
+  );
   return data;
 }
 

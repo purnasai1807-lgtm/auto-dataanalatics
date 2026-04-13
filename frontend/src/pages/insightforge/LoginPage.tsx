@@ -1,9 +1,10 @@
+import axios from "axios";
 import { motion } from "framer-motion";
 import { ArrowRight, LockKeyhole, Sparkles } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import { login } from "../../lib/insightforgeApi";
+import { login, resendVerificationEmail } from "../../lib/insightforgeApi";
 import { getApiErrorMessage } from "../../lib/http";
 import { insightforgeRoutes } from "../../lib/routes";
 
@@ -15,7 +16,10 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [resending, setResending] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [verificationEmail, setVerificationEmail] = useState("");
 
   useEffect(() => {
     if (hydrated && token) {
@@ -28,13 +32,36 @@ export default function LoginPage() {
     try {
       setLoading(true);
       setError("");
+      setNotice("");
+      setVerificationEmail("");
       const payload = await login({ email, password });
       applyAuth(payload);
       navigate((location.state as { from?: string } | null)?.from ?? insightforgeRoutes.dashboard, { replace: true });
     } catch (requestError) {
       setError(getApiErrorMessage(requestError, "Unable to sign in right now."));
+
+      if (axios.isAxiosError(requestError) && requestError.response?.data?.details?.verificationRequired) {
+        setVerificationEmail(requestError.response.data.details.email || email);
+      }
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleResendVerification() {
+    if (!verificationEmail) {
+      return;
+    }
+
+    try {
+      setResending(true);
+      setError("");
+      const response = await resendVerificationEmail(verificationEmail);
+      setNotice(response.message);
+    } catch (requestError) {
+      setError(getApiErrorMessage(requestError, "Unable to resend the verification email right now."));
+    } finally {
+      setResending(false);
     }
   }
 
@@ -88,6 +115,21 @@ export default function LoginPage() {
             />
           </div>
           {error ? <div className="mt-4 rounded-[20px] border border-amber-300/80 bg-amber-50 px-4 py-3 text-sm text-amber-900">{error}</div> : null}
+          {notice ? <div className="mt-4 rounded-[20px] border border-emerald-300/80 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">{notice}</div> : null}
+          {verificationEmail ? (
+            <div className="mt-4 rounded-[20px] border border-slate-200/80 bg-slate-50 px-4 py-4 text-sm text-slate-700">
+              <div className="font-semibold text-slate-950">Email verification required</div>
+              <div className="mt-2">Verify <code>{verificationEmail}</code> to activate your account.</div>
+              <button
+                type="button"
+                onClick={handleResendVerification}
+                disabled={resending}
+                className="mt-3 inline-flex items-center rounded-[16px] bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:opacity-60"
+              >
+                {resending ? "Sending..." : "Resend verification email"}
+              </button>
+            </div>
+          ) : null}
           {showDemoHints ? (
             <div className="mt-4 rounded-[20px] border border-slate-200/80 bg-slate-50 px-4 py-4 text-sm text-slate-700">
               <div className="font-semibold text-slate-950">Seeded demo accounts</div>

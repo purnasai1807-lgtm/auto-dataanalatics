@@ -3,9 +3,13 @@ import { ArrowRight, Sparkles, UserPlus2 } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import { signup } from "../../lib/insightforgeApi";
+import { signup, type AuthPayload } from "../../lib/insightforgeApi";
 import { getApiErrorMessage } from "../../lib/http";
 import { insightforgeRoutes } from "../../lib/routes";
+
+function isAuthPayload(payload: unknown): payload is AuthPayload {
+  return Boolean(payload && typeof payload === "object" && "token" in payload);
+}
 
 export default function SignupPage() {
   const { applyAuth, token, hydrated } = useAuth();
@@ -26,8 +30,16 @@ export default function SignupPage() {
       setLoading(true);
       setError("");
       const payload = await signup(form);
-      applyAuth(payload);
-      navigate(insightforgeRoutes.dashboard, { replace: true });
+
+      if (isAuthPayload(payload)) {
+        applyAuth(payload);
+        navigate(insightforgeRoutes.dashboard, { replace: true });
+        return;
+      }
+
+      navigate(`${insightforgeRoutes.verifyEmail}?email=${encodeURIComponent(payload.email)}`, {
+        replace: true
+      });
     } catch (requestError) {
       setError(getApiErrorMessage(requestError, "Unable to create your account right now."));
     } finally {
@@ -90,6 +102,9 @@ export default function SignupPage() {
               className="w-full rounded-[20px] border border-slate-300/80 bg-white/80 px-4 py-3 text-sm outline-none transition focus:border-teal-500"
               required
             />
+          </div>
+          <div className="mt-4 text-sm leading-6 text-slate-500">
+            New accounts may require email verification before the first sign-in.
           </div>
           {error ? <div className="mt-4 rounded-[20px] border border-amber-300/80 bg-amber-50 px-4 py-3 text-sm text-amber-900">{error}</div> : null}
           <button

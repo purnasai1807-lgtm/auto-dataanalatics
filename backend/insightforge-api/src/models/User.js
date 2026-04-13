@@ -45,6 +45,18 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false
     },
+    emailVerificationRequired: {
+      type: Boolean,
+      default: false
+    },
+    emailVerifiedAt: {
+      type: Date,
+      default: null
+    },
+    verificationEmailSentAt: {
+      type: Date,
+      default: null
+    },
     stripeCustomerId: {
       type: String,
       default: null
@@ -87,6 +99,9 @@ class FileUserDocument {
     this.usageWindowStartedAt = new Date(record.usageWindowStartedAt ?? Date.now());
     this.totalReportsGenerated = record.totalReportsGenerated ?? 0;
     this.onboardingCompleted = Boolean(record.onboardingCompleted);
+    this.emailVerificationRequired = Boolean(record.emailVerificationRequired);
+    this.emailVerifiedAt = record.emailVerifiedAt ? new Date(record.emailVerifiedAt) : null;
+    this.verificationEmailSentAt = record.verificationEmailSentAt ? new Date(record.verificationEmailSentAt) : null;
     this.stripeCustomerId = record.stripeCustomerId ?? null;
     this.stripeSubscriptionId = record.stripeSubscriptionId ?? null;
     this.createdAt = new Date(record.createdAt ?? Date.now());
@@ -129,6 +144,9 @@ class FileUserDocument {
         usageWindowStartedAt: new Date(this.usageWindowStartedAt ?? Date.now()).toISOString(),
         totalReportsGenerated: this.totalReportsGenerated ?? 0,
         onboardingCompleted: Boolean(this.onboardingCompleted),
+        emailVerificationRequired: Boolean(this.emailVerificationRequired),
+        emailVerifiedAt: this.emailVerifiedAt ? new Date(this.emailVerifiedAt).toISOString() : null,
+        verificationEmailSentAt: this.verificationEmailSentAt ? new Date(this.verificationEmailSentAt).toISOString() : null,
         stripeCustomerId: this.stripeCustomerId ?? null,
         stripeSubscriptionId: this.stripeSubscriptionId ?? null,
         createdAt: new Date(this.createdAt ?? Date.now()).toISOString(),
@@ -141,6 +159,8 @@ class FileUserDocument {
 
     this.__passwordHash = persisted.password;
     this.updatedAt = new Date(persisted.updatedAt);
+    this.emailVerifiedAt = persisted.emailVerifiedAt ? new Date(persisted.emailVerifiedAt) : null;
+    this.verificationEmailSentAt = persisted.verificationEmailSentAt ? new Date(persisted.verificationEmailSentAt) : null;
 
     if (typeof this.password === "string") {
       this.password = persisted.password;
@@ -193,6 +213,11 @@ const fileUserModel = {
         usageWindowStartedAt: new Date(data.usageWindowStartedAt ?? Date.now()).toISOString(),
         totalReportsGenerated: data.totalReportsGenerated ?? 0,
         onboardingCompleted: Boolean(data.onboardingCompleted),
+        emailVerificationRequired: Boolean(data.emailVerificationRequired),
+        emailVerifiedAt: data.emailVerifiedAt ? new Date(data.emailVerifiedAt).toISOString() : null,
+        verificationEmailSentAt: data.verificationEmailSentAt
+          ? new Date(data.verificationEmailSentAt).toISOString()
+          : null,
         stripeCustomerId: data.stripeCustomerId ?? null,
         stripeSubscriptionId: data.stripeSubscriptionId ?? null,
         createdAt,

@@ -6,6 +6,7 @@ import { insightforgeRoutes } from "./lib/routes";
 const LandingPage = lazy(() => import("./pages/insightforge/LandingPage"));
 const LoginPage = lazy(() => import("./pages/insightforge/LoginPage"));
 const SignupPage = lazy(() => import("./pages/insightforge/SignupPage"));
+const VerifyEmailPage = lazy(() => import("./pages/insightforge/VerifyEmailPage"));
 const DashboardPage = lazy(() => import("./pages/insightforge/DashboardPage"));
 const PricingPage = lazy(() => import("./pages/insightforge/PricingPage"));
 const ProfilePage = lazy(() => import("./pages/insightforge/ProfilePage"));
@@ -32,6 +33,7 @@ export default function App() {
         <Route path={insightforgeRoutes.login} element={<LoginPage />} />
         <Route path="/signup" element={<Navigate to={insightforgeRoutes.signup} replace />} />
         <Route path={insightforgeRoutes.signup} element={<SignupPage />} />
+        <Route path={insightforgeRoutes.verifyEmail} element={<VerifyEmailPage />} />
         <Route
           path="/dashboard"
           element={<Navigate to={insightforgeRoutes.dashboard} replace />}
