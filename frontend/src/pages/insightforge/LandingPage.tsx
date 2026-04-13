@@ -39,8 +39,8 @@ const testimonials = [
   {
     quote:
       "We used the sample dataset in a sales demo and closed our first analytics client the same week. It looks and feels launch-ready.",
-    name: "Jordan Patel",
-    role: "Founder, FrameOps Studio"
+    name: "AVVARU PURNASAI",
+    role: ""
   }
 ];
 
@@ -188,7 +188,7 @@ export default function LandingPage() {
                 <article key={testimonial.name} className="rounded-[28px] border border-slate-200/80 bg-white/80 p-5">
                   <p className="text-base leading-8 text-slate-700">"{testimonial.quote}"</p>
                   <div className="mt-4 text-sm font-semibold text-slate-950">{testimonial.name}</div>
-                  <div className="text-sm text-slate-500">{testimonial.role}</div>
+                  {testimonial.role ? <div className="text-sm text-slate-500">{testimonial.role}</div> : null}
                 </article>
               ))}
             </div>
