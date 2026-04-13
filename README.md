@@ -1,90 +1,148 @@
-# Auto Data Analytics Platform
-AI-powered analytics SaaS starter that combines automated data cleaning, dashboard generation, business insight narration, chat with data, and Auto ML in one full-stack project.
+# InsightForge AI
+
+InsightForge AI is a production-style AI analytics SaaS built to feel launch-ready, monetizable, and easy to hand off as a $1000+ starter product.
+
+Users can:
+
+- sign up and log in with JWT auth
+- upload CSV or XLSX files
+- get AI-powered summaries and rule-based insights
+- review charts instantly
+- save report history
+- export polished PDF reports
+- upgrade from a free plan to a Stripe-backed Pro plan
+
 ## Stack
-- Frontend: React + Vite + Tailwind + Recharts + Plotly + Framer Motion
-- Backend: FastAPI (async) + Celery + Redis
-- Data processing: Pandas + Dask
-- ML: scikit-learn + XGBoost + LightGBM-ready dependency set
-- AI: OpenAI API with graceful fallback insight generation
-- Database: PostgreSQL
-- Storage: AWS S3 or S3-compatible storage (MinIO for local Docker)
-- Deployment: Docker, Render/Railway/AWS ready
-## Monorepo structure
+
+- Frontend: React + Vite + Tailwind CSS + Framer Motion + Recharts
+- Backend: Node.js + Express
+- Database: MongoDB + Mongoose
+- AI: OpenAI Responses API
+- Billing: Stripe Checkout + Billing Portal
+
+## Repo layout
+
 ```text
-backend/            FastAPI app, Celery tasks, analytics/ML services, tests
-frontend/           Vite React client, dashboard UI, chat, model and report panels
-sample-data/        Example retail dataset
-docs/               API, deployment, and architecture notes
-docker-compose.yml  Local multi-service stack
-render.yaml         One-click Render blueprint
+frontend/   InsightForge AI web client
+server/     Express API, auth, uploads, AI analysis, Stripe, PDF export
+backend/    Legacy Python backend kept intact from earlier project work
+docs/       Product, architecture, and deployment notes
+sample-data/ Demo dataset used for onboarding
 ```
-## Core capabilities
-- Smart uploads for CSV, Excel, and JSON
-- Automated data cleaning with type correction, missing value handling, duplicate removal, and outlier clipping
-- Dashboard generation with KPI cards, filters, trend detection, line/bar/pie/heatmap charts
-- Auto ML for regression/classification with model comparison and feature importance
-- AI-generated insights and natural-language chart explanations
-- Chat with data for top-N analysis and sales forecasting prompts
-- Real-time updates over WebSockets
-- PDF reports, cleaned dataset download, and predictions export
-- User authentication and report history
-## Quick start
-### Backend only
+
+## Local run
+
+### 1. Backend
+
 ```bash
-python -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt
-uvicorn app.main:app --app-dir backend --reload
+cd server
+cp .env.example .env
+npm install
+npm run dev
 ```
-### Full stack with Docker
-```bash
-docker compose up --build
-```
-Then open:
-- Frontend: `http://localhost:3000`
-- API docs: `http://localhost:8000/docs`
-## Cloud deployment files
-- Render: `render.yaml`
-- Railway backend service config: `backend/railway.backend.json`
-- Railway worker service config: `backend/railway.worker.json`
-- Railway frontend service config: `frontend/railway.frontend.json`
-- For an always-on hosted setup, the fastest path is the Render Blueprint in `render.yaml` with managed Postgres, Redis, a backend web service, a Celery worker, and the frontend.
-- If you prefer Railway, the repo also supports a Railway-native 24/7 stack with Railway Postgres, Redis, Bucket storage, a backend service, a worker service, and the frontend.
-- See `docs/DEPLOYMENT.md` for the 24/7 deployment checklist and post-deploy health checks.
-## Environment variables
-Copy `.env.example` to `.env` and update:
-- `SECRET_KEY`
-- `DATABASE_URL`
-- `REDIS_URL`
-- `CELERY_BROKER_URL`
-- `CELERY_RESULT_BACKEND`
-- `TASK_BACKEND`
+
+Required backend variables:
+
+- `MONGODB_URI`
+- `JWT_SECRET`
+- `CLIENT_URL`
+- `APP_URL`
+- `CORS_ORIGIN`
 - `OPENAI_API_KEY`
-- `OPENAI_MODEL`
-- `STORAGE_BACKEND`
-- `AWS_ACCESS_KEY_ID`
-- `AWS_SECRET_ACCESS_KEY`
-- `AWS_REGION`
-- `S3_BUCKET`
-- `S3_ENDPOINT_URL`
-- `ALLOWED_ORIGINS`
-## Runtime modes
-- `TASK_BACKEND=auto` uses Celery when Redis broker/result variables are present and falls back to inline background tasks otherwise.
-- `STORAGE_BACKEND=auto` uses S3-compatible storage when bucket credentials are present and falls back to local container storage otherwise.
-- For durable production, set `TASK_BACKEND=celery` and `STORAGE_BACKEND=s3`.
-- The health endpoints now expose the active runtime mode and whether the app is running in fallback mode.
-## OpenAI integration
-The backend uses the official OpenAI Python SDK `responses.create(...)` pattern for:
-- insight narration
-- business action suggestions
-- conversational answer polishing
-If `OPENAI_API_KEY` is not configured, the platform still works with deterministic heuristics for insights and chat.
-## Sample data
-Use `sample-data/retail_sales_sample.csv` to test the upload and dashboard flow.
-## Verification
-- Backend source compiles with `python -m compileall backend/app`
-- Dockerized frontend and backend build in the local stack
-## Docs
-- `docs/ARCHITECTURE.md`
-- `docs/API.md`
-- `docs/DEPLOYMENT.md`
+- `STRIPE_SECRET_KEY`
+- `STRIPE_WEBHOOK_SECRET`
+- `STRIPE_PRO_PRICE_ID`
+
+Optional local demo seed:
+
+```bash
+cd server
+docker compose -f docker-compose.mongo.yml up -d
+```
+
+Then run:
+
+```bash
+cd server
+npm run seed
+```
+
+Seeded accounts:
+
+- `demo@insightforge.ai` / `InsightForge123!`
+- `pro@insightforge.ai` / `InsightForge123!`
+
+### 2. Frontend
+
+```bash
+cd frontend
+cp .env.example .env
+npm install
+npm run dev
+```
+
+Default frontend variable:
+
+- `VITE_API_BASE_URL=http://localhost:4000/api`
+- `VITE_SHOW_DEMO_HINTS=false`
+
+## Pricing logic
+
+- Free plan: 3 reports per day
+- Pro plan: unlimited reports
+- Limit enforcement happens in the backend before report generation
+
+## Core API routes
+
+- `POST /api/auth/signup`
+- `POST /api/auth/login`
+- `GET /api/auth/me`
+- `GET /api/dashboard/overview`
+- `GET /api/reports`
+- `POST /api/reports/analyze`
+- `POST /api/reports/demo/analyze`
+- `GET /api/reports/demo/preview`
+- `GET /api/reports/:reportId`
+- `GET /api/reports/:reportId/pdf`
+- `GET /api/profile`
+- `PATCH /api/profile`
+- `POST /api/billing/checkout-session`
+- `POST /api/billing/portal-session`
+- `POST /api/billing/webhook`
+
+## Deployment
+
+- Frontend: deploy `frontend/` to Vercel or Railway
+- Backend: deploy `server/` to Railway or Render
+- Database: MongoDB Atlas
+- Billing: Stripe product + recurring price wired to `STRIPE_PRO_PRICE_ID`
+
+### Railway quick start for `/workspace`
+
+- Frontend service root: `frontend`
+- Frontend config path: `/frontend/railway.frontend.json`
+- API service root: `server`
+- API config path: `/server/railway.server.json`
+- API health check: `/api/health`
+- Frontend proxy variable: `UPSTREAM_API_HOSTPORT=${{<api-service-name>.RAILWAY_PRIVATE_DOMAIN}}:4000`
+
+If you want to keep the existing public URL `https://auto-analytics-frontend-production.up.railway.app/workspace`, reuse the current Railway frontend service and redeploy it from `frontend/` instead of creating a brand-new public service.
+
+## Launch checklist
+
+- Create MongoDB Atlas database and set `MONGODB_URI`
+- Create an OpenAI API key and set `OPENAI_API_KEY`
+- Create a Stripe recurring price and set `STRIPE_PRO_PRICE_ID`
+- Add a Stripe webhook for `/api/billing/webhook`
+- Set `CLIENT_URL`, `APP_URL`, and `CORS_ORIGIN`
+- Run `npm run seed` in `server/` if you want ready-to-demo accounts
+
+See [docs/INSIGHTFORGE_AI.md](docs/INSIGHTFORGE_AI.md) for architecture and deployment details.
+See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for the exact Railway wiring.
+
+## Verification completed
+
+- Backend dependency audit: `0 vulnerabilities`
+- Backend service import check: passed
+- Dataset parsing and chart generation smoke test: passed
+- Frontend production build: passed with `npm run build`

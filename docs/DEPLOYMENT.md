@@ -1,75 +1,92 @@
 # Deployment Guide
-## Local Docker
-1. Copy `.env.example` to `.env` if you want a separate local env file.
-2. Run `docker compose up --build -d`.
-3. Open `http://localhost:3000` for the app and `http://localhost:8000/docs` for the API docs.
-4. Open `http://localhost:9001` for the local MinIO console.
-## Render
-This is the simplest always-on path for this repo because the Blueprint already creates the full stack.
-1. Push this repository to GitHub.
-2. Create an AWS S3 bucket first, or prepare another S3-compatible bucket you want to use for uploads and exports.
-3. In Render, create a new Blueprint and point it at this repo root.
-4. Render will read `render.yaml` and create PostgreSQL, Redis, `auto-analytics-backend`, `auto-analytics-worker`, and `auto-analytics-frontend`.
-5. During setup, provide `OPENAI_API_KEY`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, and `S3_BUCKET`.
-6. Leave `S3_ENDPOINT_URL` empty on Render when using AWS S3.
-7. The Blueprint now pins durable production mode by setting `TASK_BACKEND=celery` and `STORAGE_BACKEND=s3`, so uploads stay in object storage and long-running jobs stay queue-backed.
-8. After the first deploy, copy the public frontend URL into `FRONTEND_URL` and `ALLOWED_ORIGINS` if you want the backend API or docs to be accessed directly from the browser, or if you later add a custom domain.
-9. Verify the backend health endpoint at `/api/v1/healthz` returns `task_backend=celery`, `storage_backend=s3`, and `degraded=false`.
-10. Keep the web and worker services on paid always-on plans such as the `starter` plan defined in `render.yaml`; do not downgrade them to sleeping/free-style tiers if you want 24/7 uptime.
-## Railway
-1. Create a Railway project.
-2. Add a PostgreSQL service, a Redis service, and a Bucket service.
-3. Create a service named `backend` from this repo, set Root Directory to `backend`, set Config File Path to `/backend/railway.backend.json`, and deploy it.
-4. Create a service named `worker` from this repo, set Root Directory to `backend`, set Config File Path to `/backend/railway.worker.json`, and deploy it.
-5. Create a service named `frontend` from this repo, set Root Directory to `frontend`, set Config File Path to `/frontend/railway.frontend.json`, and deploy it.
-6. In `backend` variables, set:
-- `DATABASE_URL=${{Postgres.DATABASE_URL}}`
-- `REDIS_URL=${{Redis.REDIS_URL}}`
-- `CELERY_BROKER_URL=${{Redis.REDIS_URL}}`
-- `CELERY_RESULT_BACKEND=${{Redis.REDIS_URL}}`
-- `TASK_BACKEND=celery`
-- `STORAGE_BACKEND=s3`
-- `ENVIRONMENT=production`
-- `AWS_ACCESS_KEY_ID=${{Bucket.ACCESS_KEY_ID}}`
-- `AWS_SECRET_ACCESS_KEY=${{Bucket.SECRET_ACCESS_KEY}}`
-- `AWS_REGION=${{Bucket.REGION}}`
-- `S3_BUCKET=${{Bucket.BUCKET}}`
-- `S3_ENDPOINT_URL=${{Bucket.ENDPOINT}}`
-- `S3_USE_SSL=true`
-- `OPENAI_API_KEY` if you want live AI features
-7. In `worker` variables, mirror the backend runtime values or reference them from `backend` using Railway reference variables so the queue worker uses the same database, Redis, and bucket credentials.
-8. In `frontend` variables, set `UPSTREAM_API_HOSTPORT=${{backend.RAILWAY_PRIVATE_DOMAIN}}:8000` and leave `UPSTREAM_API_SCHEME=http`.
-9. Open `frontend` public networking and click Generate Domain. Then copy that public URL into `backend` as `FRONTEND_URL` and `ALLOWED_ORIGINS`.
-10. Verify `backend` at `/api/v1/healthz` shows `task_backend=celery`, `storage_backend=s3`, and `degraded=false`.
-11. Keep `backend`, `worker`, `Postgres`, `Redis`, and `Bucket` running in the same Railway project environment so the private-network and variable references stay valid.
-## Durable production mode
-Set these values when Redis and S3-compatible object storage are available:
-- `TASK_BACKEND=celery`
-- `STORAGE_BACKEND=s3`
-- `REDIS_URL`
-- `CELERY_BROKER_URL`
-- `CELERY_RESULT_BACKEND`
-- `AWS_ACCESS_KEY_ID`
-- `AWS_SECRET_ACCESS_KEY`
-- `S3_BUCKET`
-- `S3_ENDPOINT_URL`
-## Railway fallback mode
-Use this temporary profile only when Railway Redis or bucket storage is not available:
-- `TASK_BACKEND=inline`
-- `STORAGE_BACKEND=local`
-- leave Redis and S3 credential variables empty
-- keep the worker service optional in this mode
-## Health checks
-- `GET /api/v1/healthz` returns the active runtime mode and whether the service is running in fallback mode.
-- `GET /api/v1/ready` returns the same deployment summary for readiness checks.
-## AWS
-Use this mapping for an always-on production stack:
-- Frontend: ECS or S3 + CloudFront
-- Backend: ECS Fargate or App Runner
-- Worker: ECS Fargate service running Celery
-- Database: Amazon RDS PostgreSQL
-- Cache and queue: Amazon ElastiCache Redis
-- Storage: Amazon S3
-## 24/7 runtime note
-To keep the platform online while your laptop is off, the backend, worker, database, Redis, and storage must run in managed cloud infrastructure instead of local Docker.
-Once deployed on Render or Railway, VS Code can be closed and your computer can be shut down without affecting the live app.
+
+## Current deploy target
+
+This repo now contains two backend stacks:
+
+- `frontend/` + `server/` is the active InsightForge AI SaaS that should power `/workspace`
+- `backend/` is the legacy Python service from the earlier analytics product
+
+If your goal is to make `https://auto-analytics-frontend-production.up.railway.app/workspace` run the new sellable SaaS, deploy `frontend/` and `server/`.
+
+## Railway deployment for InsightForge AI
+
+### Services
+
+1. Keep or create a frontend service from `frontend` with config path `/frontend/railway.frontend.json`
+2. Keep or create an API service from `server` with config path `/server/railway.server.json`
+3. Add MongoDB with Railway Mongo or MongoDB Atlas
+4. Keep both services in the same Railway project and environment
+
+### Preserve the existing public URL
+
+If you want to keep `https://auto-analytics-frontend-production.up.railway.app/workspace`, reuse the existing Railway frontend service instead of creating a new public service. Update that service so its root directory is `frontend` and redeploy it.
+
+### API service variables
+
+Set these on the `server` service:
+
+- `NODE_ENV=production`
+- `PORT=4000`
+- `MONGODB_URI=<your Mongo connection string>`
+- `JWT_SECRET=<at least 32 random characters>`
+- `JWT_EXPIRES_IN=7d`
+- `CLIENT_URL=https://auto-analytics-frontend-production.up.railway.app`
+- `APP_URL=https://auto-analytics-frontend-production.up.railway.app`
+- `CORS_ORIGIN=https://auto-analytics-frontend-production.up.railway.app`
+- `OPENAI_API_KEY=<optional but recommended>`
+- `OPENAI_MODEL=gpt-4.1-mini`
+- `STRIPE_SECRET_KEY=<required for live billing>`
+- `STRIPE_WEBHOOK_SECRET=<required for live billing>`
+- `STRIPE_PRO_PRICE_ID=<required for live billing>`
+- `MAX_UPLOAD_SIZE_MB=8`
+- `DEMO_DATASET_PATH=./sample-data/retail_sales_sample.csv`
+
+### Frontend service variables
+
+Set these on the `frontend` service:
+
+- `UPSTREAM_API_SCHEME=http`
+- `UPSTREAM_API_HOSTPORT=${{<api-service-name>.RAILWAY_PRIVATE_DOMAIN}}:4000`
+
+Replace `<api-service-name>` with the exact Railway service name for the Node API. If you keep the old service name, use that existing name in the reference variable.
+
+### Why this works
+
+- the browser talks to the frontend on `/workspace`
+- nginx in the frontend container proxies `/api/*` to the Node API over Railway private networking
+- the client bundle uses `/api` by default, so the browser never needs the API's public domain
+- the API now binds to `::`, which is the safest Railway setting for both dual-stack and older IPv6-only environments
+
+### Deploy steps
+
+1. Push this repo to the Git branch Railway is watching
+2. Redeploy the `server` service from `server/`
+3. Confirm the API health check passes at `/api/health`
+4. Redeploy the `frontend` service from `frontend/`
+5. Open `/workspace`
+6. Test signup, login, demo analysis, upload analysis, PDF export, and pricing
+
+### Live verification
+
+After deploy, verify:
+
+- `https://<api-public-domain>/api/health` returns `{"status":"ok","service":"InsightForge AI API"}`
+- `https://auto-analytics-frontend-production.up.railway.app/workspace` loads the new landing page
+- `/workspace/login` signs in successfully
+- `/workspace/dashboard` loads without API or CORS errors
+- demo analysis works without a file upload
+- file upload works with CSV and XLSX
+- PDF export downloads successfully
+
+## Vercel plus Railway split
+
+If you later move the frontend to Vercel:
+
+- deploy `frontend/` to Vercel
+- set `VITE_API_BASE_URL` to the public API URL plus `/api`
+- update `CLIENT_URL`, `APP_URL`, and `CORS_ORIGIN` on the API service to the Vercel production domain
+
+## Legacy stack note
+
+`backend/`, `backend/railway.backend.json`, `backend/railway.worker.json`, and `render.yaml` still describe the older Python architecture. Leave those in place only if you are intentionally maintaining that older product line.

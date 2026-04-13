@@ -3,12 +3,13 @@ import { Database, LogOut, MoonStar, SunMedium } from "lucide-react";
 interface AppShellProps {
   children: ReactNode;
   userName?: string;
+  isAdmin?: boolean;
   theme: "light" | "dark";
   onToggleTheme: () => void;
   onLogout: () => void;
   statusText?: string;
 }
-function AppShell({ children, userName, theme, onToggleTheme, onLogout, statusText }: AppShellProps) {
+function AppShell({ children, userName, isAdmin, theme, onToggleTheme, onLogout, statusText }: AppShellProps) {
   return (
     <div className="min-h-screen bg-[var(--hero-bg)] text-slate-900 transition-colors dark:text-white">
       <div className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8">
@@ -32,7 +33,14 @@ function AppShell({ children, userName, theme, onToggleTheme, onLogout, statusTe
             </div>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
               <div className="rounded-2xl border border-white/10 bg-white/60 px-4 py-3 text-sm text-slate-600 dark:bg-white/5 dark:text-slate-300">
-                <div className="font-medium text-slate-900 dark:text-white">{userName ?? "Analyst"}</div>
+                <div className="font-medium text-slate-900 dark:text-white">
+                  {userName ?? "Analyst"}
+                  {isAdmin ? (
+                    <span className="ml-2 rounded-full bg-orange-500/15 px-2 py-0.5 text-[10px] uppercase tracking-[0.24em] text-orange-700 dark:text-orange-300">
+                      Admin
+                    </span>
+                  ) : null}
+                </div>
                 <div>{statusText ?? "Real-time data operations online"}</div>
               </div>
               <button

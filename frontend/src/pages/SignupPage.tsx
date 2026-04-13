@@ -1,15 +1,18 @@
 import { FormEvent, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { api, getApiErrorMessage, setStoredToken, setStoredUser } from "../api/client";
-import { TokenResponse } from "../api/types";
+import { ArrowRight } from "lucide-react";
+import { api, getApiErrorMessage } from "../api/client";
+import { DemoAuthResponse, TokenResponse } from "../api/types";
+import { applyAuthSession } from "../utils/session";
 function SignupPage() {
   const navigate = useNavigate();
-  const [fullName, setFullName] = useState("Analytics Leader");
-  const [email, setEmail] = useState("demo@analytics.io");
-  const [password, setPassword] = useState("DemoPass123");
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [launchingDemo, setLaunchingDemo] = useState(false);
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     try {
@@ -20,13 +23,25 @@ function SignupPage() {
         email,
         password,
       });
-      setStoredToken(data.access_token);
-      setStoredUser(data.user);
+      applyAuthSession(data);
       navigate("/workspace");
     } catch (error: unknown) {
       setError(getApiErrorMessage(error, "Signup failed"));
     } finally {
       setLoading(false);
+    }
+  };
+  const launchDemo = async () => {
+    try {
+      setLaunchingDemo(true);
+      setError("");
+      const { data } = await api.post<DemoAuthResponse>("/auth/demo");
+      applyAuthSession(data);
+      navigate("/workspace", { state: { statusText: data.message } });
+    } catch (requestError: unknown) {
+      setError(getApiErrorMessage(requestError, "Demo workspace could not be started"));
+    } finally {
+      setLaunchingDemo(false);
     }
   };
   return (
@@ -36,11 +51,14 @@ function SignupPage() {
         animate={{ opacity: 1, y: 0 }}
         className="glass-panel w-full max-w-md rounded-[32px] p-8 shadow-panel"
       >
+        <Link className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500 dark:text-slate-400" to="/">
+          Back to overview
+        </Link>
         <p className="font-display text-xs uppercase tracking-[0.35em] text-orange-600 dark:text-orange-300">
           Create workspace
         </p>
         <h1 className="mt-3 font-display text-4xl font-bold tracking-tight text-slate-950 dark:text-white">
-          Launch your analytics control room
+          Launch your sellable analytics SaaS
         </h1>
         <form onSubmit={submit} className="mt-8 space-y-4">
           <input
@@ -70,6 +88,15 @@ function SignupPage() {
             className="w-full rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:opacity-50 dark:bg-white dark:text-slate-950"
           >
             {loading ? "Creating account..." : "Create account"}
+          </button>
+          <button
+            type="button"
+            onClick={() => void launchDemo()}
+            disabled={launchingDemo}
+            className="w-full rounded-2xl border border-slate-300/70 bg-white/80 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:-translate-y-0.5 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-100"
+          >
+            {launchingDemo ? "Launching demo..." : "Explore instant demo"}
+            <ArrowRight className="ml-2 inline h-4 w-4" />
           </button>
         </form>
         <p className="mt-6 text-sm text-slate-500 dark:text-slate-400">

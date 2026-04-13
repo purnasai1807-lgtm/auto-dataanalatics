@@ -1,14 +1,9 @@
-FROM python:3.12-slim
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
+FROM node:20-alpine
 WORKDIR /app
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends build-essential curl gcc g++ \
-    && rm -rf /var/lib/apt/lists/*
-COPY requirements.txt /app/requirements.txt
-RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir -r /app/requirements.txt
-COPY app /app/app
-RUN mkdir -p /app/runtime
-EXPOSE 8000
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+COPY insightforge-api/package*.json ./
+RUN npm ci --omit=dev
+COPY insightforge-api/src ./src
+COPY insightforge-api/scripts ./scripts
+COPY insightforge-api/sample-data ./sample-data
+EXPOSE 4000
+CMD ["npm", "start"]

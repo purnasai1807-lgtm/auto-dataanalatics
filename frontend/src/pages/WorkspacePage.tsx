@@ -1,14 +1,14 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import axios from "axios";
 import { motion } from "framer-motion";
 import { Database, Download, RefreshCcw, Sparkles } from "lucide-react";
 import AppShell from "../components/layout/AppShell";
 import UploadPanel from "../components/upload/UploadPanel";
 import FilterBar from "../components/dashboard/FilterBar";
 import KpiGrid from "../components/dashboard/KpiGrid";
-import ChartsGrid from "../components/dashboard/ChartsGrid";
-import ModelPanel from "../components/ml/ModelPanel";
-import ChatPanel, { ChatMessage } from "../components/chat/ChatPanel";
+import ChatPanel from "../components/chat/ChatPanel";
+import type { ChatMessage } from "../components/chat/ChatPanel";
 import ReportsPanel from "../components/reports/ReportsPanel";
 import {
   api,
@@ -20,17 +20,24 @@ import {
   setStoredUser,
 } from "../api/client";
 import {
+  AdminOverview,
   ChatResponse,
   DashboardResponse,
   DatasetDetail,
   DatasetSummary,
   ModelRun,
   ReportItem,
+  SalesInquiry,
+  SalesInquiryUpdateRequest,
   User,
 } from "../api/types";
 import { useTheme } from "../hooks/useTheme";
 import { useDatasetSocket } from "../hooks/useDatasetSocket";
 import { formatCurrency, formatDate, formatNumber } from "../utils/format";
+
+const AdminPanel = lazy(() => import("../components/admin/AdminPanel"));
+const ChartsGrid = lazy(() => import("../components/dashboard/ChartsGrid"));
+const ModelPanel = lazy(() => import("../components/ml/ModelPanel"));
 const initialFilters = {
   date_from: "",
   date_to: "",
@@ -40,8 +47,13 @@ const initialFilters = {
 };
 function WorkspacePage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { theme, toggleTheme } = useTheme();
   const token = getStoredToken();
+  const initialStatusText =
+    typeof (location.state as { statusText?: string } | null)?.statusText === "string"
+      ? (location.state as { statusText: string }).statusText
+      : "Real-time status stream connected";
   const [user, setUser] = useState<User | null>(getStoredUser<User>());
   const [datasets, setDatasets] = useState<DatasetSummary[]>([]);
   const [selectedDatasetId, setSelectedDatasetId] = useState<string | null>(null);
@@ -59,7 +71,10 @@ function WorkspacePage() {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [selectedTarget, setSelectedTarget] = useState("");
   const [selectedProblemType, setSelectedProblemType] = useState("");
-  const [statusText, setStatusText] = useState("Real-time status stream connected");
+  const [statusText, setStatusText] = useState(initialStatusText);
+  const [adminOverview, setAdminOverview] = useState<AdminOverview | null>(null);
+  const [salesInquiries, setSalesInquiries] = useState<SalesInquiry[]>([]);
+  const [updatingInquiryId, setUpdatingInquiryId] = useState<string | null>(null);
   const selectedDatasetSummary = useMemo(
     () => datasets.find((dataset) => dataset.id === selectedDatasetId) ?? null,
     [datasets, selectedDatasetId],
@@ -84,6 +99,32 @@ function WorkspacePage() {
     },
     [redirectToLogin],
   );
+  const fetchAdminData = useCallback(async () => {
+    if (!token) {
+      setAdminOverview(null);
+      setSalesInquiries([]);
+      return;
+    }
+    try {
+      const [{ data: overview }, { data: inquiries }] = await Promise.all([
+        api.get<AdminOverview>("/admin/overview"),
+        api.get<SalesInquiry[]>("/sales/inquiries"),
+      ]);
+      setAdminOverview(overview);
+      setSalesInquiries(inquiries);
+    } catch (error) {
+      if (isUnauthorizedError(error)) {
+        redirectToLogin();
+        return;
+      }
+      if (axios.isAxiosError(error) && error.response?.status === 403) {
+        setAdminOverview(null);
+        setSalesInquiries([]);
+        return;
+      }
+      setActionError(getApiErrorMessage(error, "Admin console could not be refreshed."));
+    }
+  }, [redirectToLogin, token]);
   const hydrateWorkspace = useCallback(async () => {
     if (!token) {
       navigate("/login");
@@ -102,10 +143,11 @@ function WorkspacePage() {
       setSelectedDatasetId((current) => current ?? datasetList[0]?.id ?? null);
       setActionError("");
       setStatusText("Workspace synchronized");
+      void fetchAdminData();
     } catch (error) {
       handleRequestError(error, "Unable to refresh the workspace right now.", "Workspace refresh failed");
     }
-  }, [handleRequestError, navigate, token]);
+  }, [fetchAdminData, handleRequestError, navigate, token]);
   const fetchDatasetDetail = useCallback(
     async (datasetId: string) => {
       try {
@@ -277,9 +319,26 @@ function WorkspacePage() {
       handleRequestError(error, "Download failed.", "Download failed");
     }
   };
+  const handleUpdateInquiry = useCallback(
+    async (inquiryId: string, payload: SalesInquiryUpdateRequest) => {
+      try {
+        setUpdatingInquiryId(inquiryId);
+        setActionError("");
+        await api.patch(`/sales/inquiries/${inquiryId}`, payload);
+        await fetchAdminData();
+        setStatusText("Lead pipeline updated");
+      } catch (error) {
+        handleRequestError(error, "Lead update failed.", "Lead update failed");
+      } finally {
+        setUpdatingInquiryId(null);
+      }
+    },
+    [fetchAdminData, handleRequestError],
+  );
   return (
     <AppShell
       userName={user?.full_name}
+      isAdmin={Boolean(adminOverview)}
       theme={theme}
       onToggleTheme={toggleTheme}
       onLogout={() => {
@@ -345,6 +404,22 @@ function WorkspacePage() {
             <section className="rounded-[24px] border border-amber-300/70 bg-amber-50/80 px-5 py-4 text-sm text-amber-900 shadow-panel dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-100">
               {actionError}
             </section>
+          ) : null}
+          {adminOverview ? (
+            <Suspense
+              fallback={
+                <section className="glass-panel rounded-[28px] p-5 text-sm text-slate-600 shadow-panel dark:text-slate-300">
+                  Loading operator console...
+                </section>
+              }
+            >
+              <AdminPanel
+                overview={adminOverview}
+                inquiries={salesInquiries}
+                updatingInquiryId={updatingInquiryId}
+                onUpdateInquiry={handleUpdateInquiry}
+              />
+            </Suspense>
           ) : null}
           {selectedDatasetSummary ? (
             <>
@@ -436,18 +511,34 @@ function WorkspacePage() {
                       </div>
                     </div>
                   </section>
-                  <ChartsGrid charts={dashboard.charts} />
-                  <ModelPanel
-                    dataset={datasetDetail}
-                    runs={modelRuns}
-                    training={training}
-                    selectedTarget={selectedTarget}
-                    selectedProblemType={selectedProblemType}
-                    onTargetChange={setSelectedTarget}
-                    onProblemTypeChange={setSelectedProblemType}
-                    onTrain={handleTrain}
-                    onDownloadPredictions={(runId) => openDownload(`/ml/runs/${runId}/predictions`)}
-                  />
+                  <Suspense
+                    fallback={
+                      <section className="glass-panel rounded-[28px] p-5 text-sm text-slate-600 shadow-panel dark:text-slate-300">
+                        Loading dashboard visuals...
+                      </section>
+                    }
+                  >
+                    <ChartsGrid charts={dashboard.charts} />
+                  </Suspense>
+                  <Suspense
+                    fallback={
+                      <section className="glass-panel rounded-[28px] p-5 text-sm text-slate-600 shadow-panel dark:text-slate-300">
+                        Loading Auto ML studio...
+                      </section>
+                    }
+                  >
+                    <ModelPanel
+                      dataset={datasetDetail}
+                      runs={modelRuns}
+                      training={training}
+                      selectedTarget={selectedTarget}
+                      selectedProblemType={selectedProblemType}
+                      onTargetChange={setSelectedTarget}
+                      onProblemTypeChange={setSelectedProblemType}
+                      onTrain={handleTrain}
+                      onDownloadPredictions={(runId) => openDownload(`/ml/runs/${runId}/predictions`)}
+                    />
+                  </Suspense>
                   <section className="grid gap-4 xl:grid-cols-[1fr,0.95fr]">
                     <ChatPanel messages={chatMessages} loading={asking} onSend={handleAsk} />
                     <ReportsPanel

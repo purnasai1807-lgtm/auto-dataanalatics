@@ -14,7 +14,9 @@ coverage/
 htmlcov/
 backend/runtime/
 backend/.env
+server/.env
 frontend/.env
 frontend/dist/
+*.tsbuildinfo
 .DS_Store
 Thumbs.db

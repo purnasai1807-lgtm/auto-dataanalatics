@@ -2,7 +2,7 @@ import axios from "axios";
 const TOKEN_KEY = "auto-analytics-token";
 const USER_KEY = "auto-analytics-user";
 export const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL ?? "/api/v1",
+  baseURL: import.meta.env.VITE_API_BASE_URL ?? "/api",
 });
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem(TOKEN_KEY);

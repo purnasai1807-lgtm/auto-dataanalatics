@@ -1,0 +1,7 @@
+node_modules/
+.env
+backend.log
+backend.err.log
+fallback-test.out.log
+fallback-test.err.log
+data/

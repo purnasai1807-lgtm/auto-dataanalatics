@@ -5,8 +5,8 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        display: ["'Space Grotesk'", "sans-serif"],
-        body: ["'IBM Plex Sans'", "sans-serif"],
+        display: ["'Sora'", "sans-serif"],
+        body: ["'Plus Jakarta Sans'", "sans-serif"],
       },
       colors: {
         shell: {
